@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Go chat</title>
+  <style>
+    body {
+      background-color: rgba(0, 0, 0, 0.8);
+    }
+
+    header#header {
+      color: rgb(255, 0, 255)
+    }
+
+    p {
+      display: block;
+    }
+
+    .red {
+      color: rgb(255, 115, 115)
+    }
+
+    .black {
+      color: rgb(187, 187, 187)
+    }
+
+    .blue {
+      color: lightblue
+    }
+
+    .green {
+      color: lightgreen
+    }
+  </style>
+</head>
+
+<body>
+  <header id="header"></header>
+  <div id="display"></div>
+  <input type="text" id="msg-input" autofocus />
+  <button id="msg-button">send message</button>
+  <script>
+    window.onload = start
+
+    // message types
+    let SEND_MESSAGE = 0
+    let JOIN_ROOM = 1
+    let QUIT_ROOM = 2
+
+    function display(color, ...strs) {
+      let msg = ""
+      for (let s of strs) {
+        if (msg.length > 0) {
+          msg += " "
+        }
+        msg += s
+      }
+      const displayDiv = document.getElementById("display")
+      displayDiv.innerHTML += `<p class="${color}">${msg}</p>`
+    }
+
+    function setCurrentRoom(socket, roomName) {
+      currentRoomName = "#default"
+      const msg = {
+        type: JOIN_ROOM,
+        data: currentRoomName
+      }
+      socket.send(JSON.stringify(msg))
+      document.getElementById("header").innerText = roomName
+    }
+
+    function start() {
+      try {
+        const name = prompt("Name:", "")
+        const socket = new WebSocket("ws://" + location.host + "/ws")
+
+        const msgInput = document.getElementById("msg-input")
+        const msgButton = document.getElementById("msg-button")
+
+        socket.onopen = () => {
+          console.log("connected")
+          const auth = { name: name }
+          socket.send(JSON.stringify(auth))
+
+          setCurrentRoom(socket, "#default")
+
+          socket.addEventListener("message", ({ data }) => {
+            const message = JSON.parse(data)
+            switch (message.type) {
+              case SEND_MESSAGE:
+                let color = "black"
+                if (message.data.name === name) {
+                  color = "green"
+                }
+                display(color, message.data.name + ":", message.data.content)
+                break
+              case JOIN_ROOM:
+                display("blue", message.data, "joined the room")
+                break
+              case QUIT_ROOM:
+                display("red", message.data, "quit the room")
+                break
+            }
+          })
+
+          msgInput.addEventListener("keyup", function (event) {
+            event.preventDefault()
+            if (event.keyCode === 13) {
+              msgButton.click()
+            }
+          })
+          msgButton.onclick = () => {
+            const msg = {
+              type: SEND_MESSAGE,
+              data: String(msgInput.value)
+            }
+            msgInput.value = ""
+            socket.send(JSON.stringify(msg))
+          }
+        }
+
+        socket.onerror = (err) => {
+          console.log(err)
+        }
+        socket.onclose = (event) => {
+          alert("connection closed")
+        }
+      } catch (error) {
+        console.log(error)
+      }
+    }
+  </script>
+</body>
+
+</html>
