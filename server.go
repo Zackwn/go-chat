@@ -35,12 +35,17 @@ func (server *server) run() {
 			server.rooms[info.roomName] = room
 		}
 		// register client
-		room.register <- info.client
-		// inform room members
 		info.client.room = room
+		room.register <- info.client
+		// inform room members of joining client
 		info.client.room.broadcast <- message{
 			Type: JOIN_ROOM,
-			Data: info.client.name,
+			Data: info.client,
+		}
+		// send room members to client
+		info.client.send <- message{
+			Type: ROOM_MEMBERS,
+			Data: room.members,
 		}
 	}
 }
@@ -54,7 +59,7 @@ func (server *server) newClient(conn *websocket.Conn) {
 	}
 	client := NewClient(conn)
 	client.join_room = server.join_room
-	client.name = r["name"]
+	client.Name = r["name"]
 
 	go client.readPump()
 	go client.writePump()

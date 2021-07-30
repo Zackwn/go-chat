@@ -16,28 +16,28 @@ func NewClient(conn *websocket.Conn) *client {
 	client := new(client)
 	client.send = make(chan message)
 	client.conn = conn
-	client.id = fmt.Sprint(rand.Int())
+	client.ID = fmt.Sprint(rand.Int())
 
-	log.Printf("new client: %v\n", client.id)
+	log.Printf("new client: %v\n", client.ID)
 	return client
 }
 
 type client struct {
-	id        string
-	name      string
+	ID        string `json:"id"`
+	Name      string `json:"name"`
 	conn      *websocket.Conn
 	room      *room
 	join_room chan<- joinRoomInfo
 	send      chan message
 }
 
-func (client *client) readPump() {
+func (c *client) readPump() {
 	for {
 		var msg message
-		err := client.conn.ReadJSON(&msg)
+		err := c.conn.ReadJSON(&msg)
 		if err != nil {
-			client.quitCurrentRoom()
-			client.conn.Close()
+			c.quitCurrentRoom()
+			c.conn.Close()
 			log.Println(err)
 			return
 		}
@@ -47,19 +47,19 @@ func (client *client) readPump() {
 			if !ok {
 				log.Println("invalid data from client: ", msg.Data)
 			}
-			client.room.broadcast <- message{
+			c.room.broadcast <- message{
 				Type: SEND_MESSAGE,
 				Data: struct {
-					Name    string `json:"name"`
-					Content string `json:"content"`
+					Client  *client `json:"client"`
+					Content string  `json:"content"`
 				}{
-					Name:    client.name,
+					Client:  c,
 					Content: text,
 				},
 			}
 
 		case QUIT_ROOM:
-			client.quitCurrentRoom()
+			c.quitCurrentRoom()
 
 		case JOIN_ROOM:
 			roomName, ok := msg.Data.(string)
@@ -67,8 +67,8 @@ func (client *client) readPump() {
 				log.Println("invalid message from client: ", msg.Data)
 				return
 			}
-			client.quitCurrentRoom()
-			client.join_room <- joinRoomInfo{client: client, roomName: roomName}
+			c.quitCurrentRoom()
+			c.join_room <- joinRoomInfo{client: c, roomName: roomName}
 		}
 	}
 }
@@ -93,7 +93,7 @@ func (client *client) quitCurrentRoom() {
 		client.room.unregister <- client
 		client.room.broadcast <- message{
 			Type: QUIT_ROOM,
-			Data: client.name,
+			Data: client,
 		}
 		client.room = nil
 	}
