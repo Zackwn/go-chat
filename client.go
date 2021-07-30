@@ -90,7 +90,7 @@ func (client *client) writePump() {
 
 func (client *client) quitCurrentRoom() {
 	if client.room != nil {
-		delete(client.room.members, client.id)
+		client.room.unregister <- client
 		client.room.broadcast <- message{
 			Type: QUIT_ROOM,
 			Data: client.name,
