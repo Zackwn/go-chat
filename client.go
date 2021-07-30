@@ -67,6 +67,7 @@ func (client *client) readPump() {
 				log.Println("invalid message from client: ", msg.Data)
 				return
 			}
+			client.quitCurrentRoom()
 			client.join_room <- joinRoomInfo{client: client, roomName: roomName}
 		}
 	}
